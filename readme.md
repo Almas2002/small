@@ -7,7 +7,7 @@ _
 
 1. Clone the repo
    ```sh
-   git https://github.com/Almas2002/small
+   git https://github.com/Almas2002/small.git
    ```
 2. Build golang project
    ```sh
@@ -56,3 +56,4 @@ _
    "user_id":2,
    "product_id":1
    }
+6.   Откройте ваш браузер и перейдите по адресу http://localhost:16686/ откроется панель jaeger
