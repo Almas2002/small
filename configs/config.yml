@@ -1,0 +1,27 @@
+postgres:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: 12345
+  dbName: small
+  sslMode: false
+
+
+jaeger:
+  enable: true
+  serviceName: small_service
+  hostPort: "localhost:6831"
+  logSpans: false
+
+
+http:
+  port: :8080
+  development: true
+  baseUserPath: /api/user
+  baseProductPath: /api/product
+
+mail:
+  host: 465
+  email: almas.zhumakhanov@bk.ru
+  pass: gBNrLu75CtCsh0QLVhEe
+  smtp: smtp.mail.ru
