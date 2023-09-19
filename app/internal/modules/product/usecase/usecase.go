@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/gomail.v2"
 	"small/internal/config"
 	"small/internal/models"
@@ -80,7 +81,6 @@ func (c *useCase) UpdateProductPrice(ctx context.Context, product *models.Produc
 	if err != nil {
 		return err
 	}
-
 	emails := make([]string, 0, len(users))
 
 	for _, item := range users {
@@ -90,21 +90,39 @@ func (c *useCase) UpdateProductPrice(ctx context.Context, product *models.Produc
 
 	}
 	if len(emails) != 0 {
-		m := gomail.NewMessage()
-		m.SetHeader("From", c.config.Email.Email)
-		m.SetHeader("To", emails...)
-		m.SetHeader("Subject", "Hello From Small!")
-		m.SetBody("text/html", fmt.Sprintf("product with id: %d changed price to %f", product.Id, product.Price))
+		wg := errgroup.Group{}
 
-		if err = c.mail.DialAndSend(m); err != nil {
+		for _, mailItem := range emails {
+			func(mail string) {
+				wg.Go(func() error {
+					return c.sendEmail(mail, product.Id, product.Price)
+				})
+			}(mailItem)
+		}
+		err = wg.Wait()
+		if err != nil {
 			tracing.TraceError(span, err)
-			c.log.WarnMsg("UpdateProduct.sendMail", err)
+			c.log.WarnMsg("UpdateProduct.Email", err)
 			return err
 		}
 
 	}
 	return nil
 
+}
+
+func (c *useCase) sendEmail(mailItem string, productId uint32, productPrice float64) error {
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", c.config.Email.Email)
+	m.SetHeader("To", mailItem)
+	m.SetHeader("Subject", "Hello From Small!")
+	m.SetBody("text/html", fmt.Sprintf("product with id: %d changed price to %f", productId, productPrice))
+
+	if err := c.mail.DialAndSend(m); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *useCase) SubToProduct(ctx context.Context, userId, productId uint32) error {
@@ -137,7 +155,8 @@ func (c *useCase) SubToProduct(ctx context.Context, userId, productId uint32) er
 		return err
 	}
 
-	if err = c.repo.UserSubToProduct(ctx, userId, productId); err != nil {
+	err = c.repo.UserSubToProduct(ctx, userId, productId)
+	if err != nil {
 		return err
 	}
 	return nil

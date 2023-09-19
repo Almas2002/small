@@ -6,9 +6,11 @@ import (
 	"github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v4"
 	"github.com/opentracing/opentracing-go"
+	"github.com/pkg/errors"
 	"small/internal/models"
 	"small/internal/modules/product/repository/dao"
 	userDao "small/internal/modules/user/repository/dao"
+	"small/pkg/httpErrors"
 	"small/pkg/tools/transaction"
 	"small/pkg/tracing"
 )
@@ -207,6 +209,20 @@ func (r *repository) UserSubToProduct(ctx context.Context, userId uint32, produc
 		err = transaction.Finish(ctx, t, err)
 	}(ctx, tx)
 
+	id, err := r.findSubToProductUserTx(ctx, tx, userId, productId)
+	if err != nil {
+		tracing.TraceError(span, err)
+		r.log.WarnMsg("UserSubToProduct.findSubToProductUserTx", err)
+		return err
+	}
+
+	if id != 0 {
+		err = errors.Wrap(httpErrors.AlreadyExists, "user sub to product")
+		tracing.TraceError(span, err)
+		r.log.WarnMsg("UserSubToProduct.exits", err)
+		return err
+	}
+
 	if err = r.userSubToProductTx(ctx, tx, userId, productId); err != nil {
 		tracing.TraceError(span, err)
 		r.log.WarnMsg("UserSubToProduct.userSubToProductTx", err)
@@ -232,6 +248,36 @@ func (r *repository) userSubToProductTx(ctx context.Context, tx pgx.Tx, userId u
 	r.log.Debug(fmt.Sprintf("created subs: %d", tag.RowsAffected()))
 
 	return nil
+}
+
+func (r *repository) findSubToProductUserTx(ctx context.Context, tx pgx.Tx, userId, productId uint32) (uint32, error) {
+	r.log.Info("repository.findSubToProductUserTx")
+
+	sqlGen, args, err := r.genSQL.Select("user_id").
+		From(userDao.UserSubProductsTableName).
+		Where(squirrel.And{squirrel.Eq{"user_id": userId}, squirrel.Eq{"product_id": productId}}).
+		ToSql()
+
+	if err != nil {
+		r.log.WarnMsg("findSubToProductUserTx.genSQL", err)
+		return 0, err
+	}
+
+	var id uint32
+	rows, err := tx.Query(ctx, sqlGen, args...)
+	if err != nil {
+		r.log.WarnMsg("findSubToProductUserTx.Query", err)
+		return 0, err
+	}
+
+	for rows.Next() {
+		if err = rows.Scan(&id); err != nil {
+			r.log.WarnMsg("findSubToProductUserTx.Scan", err)
+			return 0, err
+		}
+	}
+
+	return id, err
 }
 
 func (r *repository) UserUnsubToProduct(ctx context.Context, userId uint32, productId uint32) error {

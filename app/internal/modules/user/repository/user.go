@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Masterminds/squirrel"
+	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgx/v4"
 	"github.com/opentracing/opentracing-go"
 	"small/internal/models"
@@ -177,13 +178,10 @@ func (r *repository) getSubUsersTx(ctx context.Context, tx pgx.Tx, productId uin
 	}
 
 	daoUsers := make([]*dao.User, 0, 3)
-	daoUser := dao.User{}
-	for rows.Next() {
-		if err = rows.Scan(&daoUser.Id, &daoUser.Phone, &daoUser.Email); err != nil {
-			r.log.WarnMsg("getSubUsersTx.Scan", err)
-			return nil, err
-		}
-		daoUsers = append(daoUsers, &daoUser)
+	err = pgxscan.ScanAll(&daoUsers, rows)
+	if err != nil {
+		r.log.WarnMsg("getSubUsersTx.ScanAll", err)
+		return nil, err
 	}
 
 	return r.usersFromDaoToDomain(daoUsers), nil

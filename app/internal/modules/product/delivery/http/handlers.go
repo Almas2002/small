@@ -86,6 +86,9 @@ func (h *handlers) SubToProduct() echo.HandlerFunc {
 			if errors.Is(err, httpErrors.NotFound) {
 				return c.JSON(404, err.Error())
 			}
+			if errors.Is(err, httpErrors.AlreadyExists) {
+				return c.JSON(400, err.Error())
+			}
 			return c.JSON(500, err.Error())
 		}
 		return c.JSON(201, "OK")

@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS products
 CREATE TABLE IF NOT EXISTS users
 (
     user_id serial primary key,
-    phone   varchar(20) unique,
-    email   varchar(100) unique
+    phone   varchar(20),
+    email   varchar(100)
 );
 
 CREATE TABLE IF NOT EXISTS user_sub_products
